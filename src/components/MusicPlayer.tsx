@@ -42,20 +42,20 @@ export default function MusicPlayer({
   return (
     <div className="flex flex-col h-full space-y-4">
       {/* Header */}
-      <div className="p-3 bg-black/60 border border-neon-cyan/50 glow-cyan rounded-lg flex items-center justify-between">
-        <h2 className="font-orbitron text-lg text-neon-cyan tracking-widest">NEURAL AUDIO</h2>
+      <div className="p-4 bg-black/60 border border-neon-cyan/50 glow-cyan rounded-lg flex items-center justify-between">
+        <h2 className="font-orbitron text-xl text-neon-cyan tracking-widest">NEURAL AUDIO</h2>
         <div className="flex items-center space-x-2">
           {spotifyUser.connected ? (
             <div className="flex items-center space-x-2">
-              <span className="text-[9px] text-neon-purple uppercase font-bold">{spotifyUser.name}</span>
-              <button onClick={onLogout} className="text-gray-500 hover:text-red-500 transition-colors">
-                <LogOut size={14} />
+              <span className="text-[10px] text-neon-purple uppercase font-bold">{spotifyUser.name}</span>
+              <button onClick={onLogout} className="text-gray-500 hover:text-red-400 transition-colors">
+                <LogOut size={16} />
               </button>
             </div>
           ) : (
             <button 
               onClick={handleSpotifyConnect}
-              className="text-[9px] px-2 py-1 bg-neon-purple/20 border border-neon-purple text-neon-purple rounded hover:bg-neon-purple hover:text-black transition-all font-bold"
+              className="text-[10px] px-3 py-1 bg-neon-purple/20 border border-neon-purple text-neon-purple rounded hover:bg-neon-purple hover:text-black transition-all font-bold"
             >
               LINK SPOTIFY
             </button>
@@ -64,7 +64,7 @@ export default function MusicPlayer({
       </div>
 
       {/* Now Playing Card */}
-      <div className="flex flex-col p-6 bg-black/80 border-2 border-neon-purple/50 rounded-xl relative overflow-hidden group">
+      <div className="flex flex-col p-6 bg-black/80 border-2 border-neon-purple/50 rounded-xl relative overflow-hidden group glow-purple">
         <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-neon-purple to-transparent animate-pulse" />
         
         {/* Spinning Disc */}
@@ -82,20 +82,18 @@ export default function MusicPlayer({
         </div>
 
         {/* Track Title */}
-        <div className="text-center overflow-hidden">
-          <div className="whitespace-nowrap animate-marquee mb-1">
-            <span className="font-orbitron text-xl text-white neon-text-cyan">
-              {currentTrack?.title || 'SELECT PROTOCOL...'}
-            </span>
-          </div>
-          <p className="text-neon-purple text-sm font-bold tracking-widest">
+        <div className="text-center">
+          <h3 className="font-orbitron text-xl text-white neon-text-cyan mb-1 truncate">
+            {currentTrack?.title || 'SELECT PROTOCOL...'}
+          </h3>
+          <p className="text-neon-purple text-xs font-bold tracking-widest uppercase mb-4">
             {currentTrack?.artist || 'UNKNOWN ENTITY'}
           </p>
-          <div className="flex items-center justify-center space-x-2 mt-2">
-            <span className="text-[10px] bg-neon-cyan/10 text-neon-cyan px-2 py-0.5 rounded border border-neon-cyan/20">
+          <div className="flex items-center justify-center space-x-2">
+            <span className="text-[10px] bg-neon-cyan/10 text-neon-cyan px-2 py-0.5 rounded border border-neon-cyan/20 font-bold">
               {bpm} BPM
             </span>
-            <span className="text-[10px] bg-neon-purple/10 text-neon-purple px-2 py-0.5 rounded border border-neon-purple/20">
+            <span className="text-[10px] bg-neon-purple/10 text-neon-purple px-2 py-0.5 rounded border border-neon-purple/20 font-bold">
               {currentTrack?.duration || '0:00'}
             </span>
           </div>
@@ -107,7 +105,7 @@ export default function MusicPlayer({
             onClick={() => onTrackChange((currentTrackIndex - 1 + tracks.length) % tracks.length)}
             className="p-2 text-neon-cyan hover:text-white transition-colors"
           >
-            <SkipBack size={24} />
+            <SkipBack size={28} />
           </button>
           
           <button 
@@ -121,7 +119,7 @@ export default function MusicPlayer({
             onClick={() => onTrackChange((currentTrackIndex + 1) % tracks.length)}
             className="p-2 text-neon-cyan hover:text-white transition-colors"
           >
-            <SkipForward size={24} />
+            <SkipForward size={28} />
           </button>
         </div>
 
@@ -146,7 +144,7 @@ export default function MusicPlayer({
           <button
             key={track.id}
             onClick={() => onTrackChange(index)}
-            className={`w-full flex items-center p-4 border-b border-gray-800/50 hover:bg-neon-cyan/5 transition-all text-left ${
+            className={`w-full flex items-center p-4 border-b border-gray-800 hover:bg-neon-cyan/10 transition-all text-left ${
               currentTrackIndex === index ? 'bg-neon-cyan/10 border-l-4 border-l-neon-cyan' : ''
             }`}
           >
@@ -159,10 +157,7 @@ export default function MusicPlayer({
               <h4 className={`text-sm font-bold truncate ${currentTrackIndex === index ? 'text-neon-cyan' : 'text-gray-300'}`}>
                 {track.title}
               </h4>
-              <p className="text-[10px] text-gray-500 uppercase tracking-tighter">{track.artist}</p>
-            </div>
-            <div className="text-[10px] text-gray-600 font-mono">
-              {track.duration}
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider">{track.artist}</p>
             </div>
           </button>
         ))}

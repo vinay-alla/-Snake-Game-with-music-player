@@ -34,7 +34,7 @@ export default function Background({ isPlaying, bpm }: BackgroundProps) {
 
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none bg-[#020205]">
-      {/* Dynamic 3D Grid */}
+      {/* 3D Grid Backdrop */}
       <div 
         className="absolute bottom-0 left-0 w-full h-[60vh] opacity-20"
         style={{
@@ -48,7 +48,7 @@ export default function Background({ isPlaying, bpm }: BackgroundProps) {
         }}
       />
 
-      {/* Floating Network Fragments */}
+      {/* Floating Data Frags */}
       {fragments.map((f) => (
         <motion.div
           key={f.id}
@@ -58,7 +58,7 @@ export default function Background({ isPlaying, bpm }: BackgroundProps) {
             left: [`${f.x}%`, `${(f.x + 10) % 100}%`],
             top: [`${f.y}%`, `${(f.y + 10) % 100}%`],
             scale: isPlaying ? [1, 1.5, 1] : 1,
-            opacity: [0.2, 0.5, 0.2]
+            opacity: [0.1, 0.3, 0.1]
           }}
           transition={{
             left: { duration: 20 * (1 / f.speed), repeat: Infinity, ease: "linear" },
@@ -70,7 +70,7 @@ export default function Background({ isPlaying, bpm }: BackgroundProps) {
         />
       ))}
 
-      {/* Mouse Interaction Glow */}
+      {/* Mouse Laser Glow */}
       <div 
         className="absolute w-[600px] h-[600px] rounded-full pointer-events-none opacity-20 blur-[100px]"
         style={{
@@ -81,18 +81,18 @@ export default function Background({ isPlaying, bpm }: BackgroundProps) {
         }}
       />
 
-      {/* Scanning Laser Line */}
+      {/* Horizontal Scan Laser */}
       <motion.div 
         animate={{ top: ['-10%', '110%'] }}
         transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
         className="absolute left-0 w-full h-[1px] bg-neon-cyan/20 glow-cyan z-0"
       />
 
-      {/* Vignette Overlay */}
+      {/* Vignette */}
       <div className="absolute inset-0 bg-radial-vignette pointer-events-none" />
       
-      {/* Subtle Scanlines */}
-      <div className="absolute inset-0 scanline opacity-20 pointer-events-none" />
+      {/* Global Scanline Matrix */}
+      <div className="absolute inset-0 scanline opacity-30 pointer-events-none" />
     </div>
   );
 }

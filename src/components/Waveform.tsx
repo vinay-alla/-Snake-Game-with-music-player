@@ -39,16 +39,14 @@ export default function Waveform({ isPlaying }: WaveformProps) {
 
         // Gradient color for each bar
         const gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
-        gradient.addColorStop(0, '#bf00ff'); // Purple
-        gradient.addColorStop(1, '#00f5ff'); // Cyan
+        gradient.addColorStop(0, '#3b82f6'); // Accent Blue
+        gradient.addColorStop(1, '#60a5fa'); 
 
         ctx.fillStyle = gradient;
         
-        // Add a bit of glow effect
-        ctx.shadowBlur = 5;
-        ctx.shadowColor = '#00f5ff';
+        ctx.shadowBlur = 0;
         
-        ctx.fillRect(x, canvas.height - barHeight, barWidth - 2, barHeight);
+        ctx.fillRect(x, canvas.height - barHeight, barWidth - 4, barHeight);
         
         x += barWidth;
       }

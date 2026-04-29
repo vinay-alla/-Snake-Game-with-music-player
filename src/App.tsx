@@ -20,6 +20,18 @@ export default function App() {
   });
   const [leaderboard, setLeaderboard] = useState<ScoreEntry[]>([]);
   const [volume, setVolume] = useState(0.5);
+  const [isGlitching, setIsGlitching] = useState(false);
+
+  useEffect(() => {
+    const triggerGlitch = () => {
+      if (Math.random() > 0.95) {
+        setIsGlitching(true);
+        setTimeout(() => setIsGlitching(false), 200);
+      }
+    };
+    const interval = setInterval(triggerGlitch, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchAppData = useCallback(async () => {
     fetch('/api/tracks').then(res => res.json()).then(setTracks);
@@ -102,13 +114,13 @@ export default function App() {
   };
 
   return (
-    <div className="relative h-screen w-screen bg-cyber-bg font-mono text-gray-100 overflow-hidden select-none">
+    <div className={`relative h-screen w-screen bg-cyber-bg font-mono text-gray-100 overflow-hidden select-none ${isGlitching ? 'glitch-effect' : ''}`}>
       <Background isPlaying={isPlayingMusic} bpm={currentTrack?.bpm || 120} />
       
       {/* Main Layout */}
-      <div className="relative z-10 grid grid-cols-[380px_1fr_350px] h-full p-6 gap-6 pointer-events-none">
+      <div className="relative z-10 grid grid-cols-[400px_1fr_400px] h-full p-6 gap-6 pointer-events-none">
         
-        {/* Left: Music Player */}
+        {/* Left: Music Player Dashboard */}
         <div className="h-full overflow-hidden pointer-events-auto">
           <MusicPlayer 
             tracks={tracks}
@@ -124,8 +136,15 @@ export default function App() {
           />
         </div>
 
-        {/* Center: Game */}
+        {/* Center: Tactical Game Grid */}
         <div className="flex flex-col items-center justify-center pointer-events-auto">
+          <div className="mb-4 text-center">
+            <h1 className="font-orbitron text-3xl text-neon-cyan tracking-[0.5em] neon-text-cyan flex items-center justify-center gap-4">
+              <span className="w-12 h-[1px] bg-neon-cyan/50" />
+              NEON PROTOCOL
+              <span className="w-12 h-[1px] bg-neon-cyan/50" />
+            </h1>
+          </div>
           <SnakeGame 
             gameState={gameState}
             setGameState={setGameState}
@@ -136,7 +155,7 @@ export default function App() {
           />
         </div>
 
-        {/* Right: Scoreboard */}
+        {/* Right: Scoreboard Dashboard */}
         <div className="h-full overflow-hidden pointer-events-auto">
           <ScoreBoard 
             currentScore={score}
@@ -148,9 +167,25 @@ export default function App() {
         </div>
       </div>
 
-      {/* Bottom: Waveform Visualizer */}
-      <div className="absolute bottom-0 left-0 w-full h-[60px] bg-black/40 border-t border-neon-cyan/30 z-20">
-        <Waveform isPlaying={isPlayingMusic} />
+      {/* Bottom: Unified Systems Status Bar */}
+      <div className="absolute bottom-0 left-0 w-full h-[60px] bg-black/80 border-t border-neon-cyan/30 z-20 backdrop-blur-md flex items-center px-6">
+        <div className="flex-1">
+          <Waveform isPlaying={isPlayingMusic} />
+        </div>
+        <div className="ml-8 flex items-center space-x-12 opacity-50">
+          <div className="text-[10px] uppercase">
+            <span className="text-neon-cyan block">CPU Load</span>
+            <span className="font-bold">{(Math.random() * 20 + 40).toFixed(1)}%</span>
+          </div>
+          <div className="text-[10px] uppercase">
+            <span className="text-neon-purple block">Sync Latency</span>
+            <span className="font-bold">12ms</span>
+          </div>
+          <div className="text-[10px] uppercase text-neon-pink">
+            <span className="block">Status</span>
+            <span className="font-bold">Authorized</span>
+          </div>
+        </div>
       </div>
     </div>
   );

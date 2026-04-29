@@ -16,6 +16,17 @@ const GRID_SIZE = 20;
 const CELL_SIZE = 24;
 const INITIAL_SPEED = 150;
 
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  color: string;
+  size: number;
+}
+
 export default function SnakeGame({ 
   gameState, 
   setGameState, 
@@ -33,8 +44,33 @@ export default function SnakeGame({
   const [isWrapping, setIsWrapping] = useState(true);
   const [combo, setCombo] = useState({ multiplier: 1, lastEat: 0 });
   const [level, setLevel] = useState(1);
+  const [shake, setShake] = useState(0);
+  const particlesRef = useRef<Particle[]>([]);
   const gameLoopRef = useRef<number | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const directionRef = useRef<Point>({ x: 0, y: -1 });
+
+  const spawnParticles = (x: number, y: number, color: string, count: number = 8) => {
+    const newParticles: Particle[] = [];
+    for (let i = 0; i < count; i++) {
+      newParticles.push({
+        id: Math.random(),
+        x: x + CELL_SIZE / 2,
+        y: y + CELL_SIZE / 2,
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4,
+        life: 1.0,
+        color: color,
+        size: Math.random() * 3 + 2
+      });
+    }
+    particlesRef.current = [...particlesRef.current, ...newParticles];
+  };
+
+  const triggerShake = (intensity: number) => {
+    setShake(intensity);
+    setTimeout(() => setShake(0), 150);
+  };
 
   const generateFood = useCallback((currentSnake: Point[]) => {
     let newFood;
@@ -105,77 +141,79 @@ export default function SnakeGame({
   }, [direction]);
 
   const moveSnake = useCallback(() => {
-    setSnake(prevSnake => {
-      const head = prevSnake[0];
-      const newHead = {
-        x: head.x + directionRef.current.x,
-        y: head.y + directionRef.current.y
-      };
+    if (gameState !== 'PLAYING') return;
 
-      // Collision Check: Walls
-      if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.y < 0 || newHead.y >= GRID_SIZE) {
-        if (isWrapping) {
-          newHead.x = (newHead.x + GRID_SIZE) % GRID_SIZE;
-          newHead.y = (newHead.y + GRID_SIZE) % GRID_SIZE;
-        } else {
-          setGameState('GAME_OVER');
-          audioEngine.playDeathSound();
-          return prevSnake;
-        }
-      }
+    const head = snake[0];
+    if (!head) return;
 
-      // Collision Check: Self
-      if (prevSnake.some(s => s.x === newHead.x && s.y === newHead.y)) {
+    let newHead = {
+      x: head.x + directionRef.current.x,
+      y: head.y + directionRef.current.y
+    };
+
+    // 1. Collision Check: Walls
+    if (newHead.x < 0 || newHead.x >= GRID_SIZE || newHead.y < 0 || newHead.y >= GRID_SIZE) {
+      if (isWrapping) {
+        newHead.x = (newHead.x + GRID_SIZE) % GRID_SIZE;
+        newHead.y = (newHead.y + GRID_SIZE) % GRID_SIZE;
+      } else {
         setGameState('GAME_OVER');
         audioEngine.playDeathSound();
-        return prevSnake;
+        triggerShake(12);
+        return;
       }
+    }
 
-      const newSnake = [newHead, ...prevSnake];
+    // 2. Collision Check: Self
+    if (snake.some(s => s.x === newHead.x && s.y === newHead.y)) {
+      setGameState('GAME_OVER');
+      audioEngine.playDeathSound();
+      triggerShake(12);
+      return;
+    }
 
-      // Check Food
-      const ateFood = newHead.x === food.x && newHead.y === food.y;
-      const ateSpecial = specialFood && newHead.x === specialFood.x && newHead.y === specialFood.y;
+    // 3. Food Logic
+    const ateFood = newHead.x === food.x && newHead.y === food.y;
+    const ateSpecial = specialFood && newHead.x === specialFood.x && newHead.y === specialFood.y;
 
-      if (ateFood || ateSpecial) {
-        const now = Date.now();
-        const comboTime = now - combo.lastEat < 3000;
-        const newMultiplier = comboTime ? Math.min(combo.multiplier + 1, 5) : 1;
-        
-        const points = (ateSpecial ? 50 : 10) * newMultiplier;
-        setScore(s => s + points);
-        setCombo({ multiplier: newMultiplier, lastEat: now });
+    if (ateFood || ateSpecial) {
+      const particleColor = ateSpecial ? '#fbbf24' : '#e11d48';
+      spawnParticles(newHead.x * CELL_SIZE, newHead.y * CELL_SIZE, particleColor, 12);
+      
+      const now = Date.now();
+      const comboTime = now - combo.lastEat < 3000;
+      const newMultiplier = comboTime ? Math.min(combo.multiplier + 1, 5) : 1;
+      const points = (ateSpecial ? 50 : 10) * newMultiplier;
+      
+      const newSnake = [newHead, ...snake];
+      setSnake(newSnake);
+      setScore(s => s + points);
+      setCombo({ multiplier: newMultiplier, lastEat: now });
 
-        if (ateFood) {
-          setFood(generateFood(newSnake));
-          // Spawn special food every 10 foods
-          if (Math.floor((score + points) / 100) > Math.floor(score / 100)) {
-            setSpecialFood(generateFood([...newSnake, food]));
-          } else {
-            // Random chance or clear after some time? Let's just clear for now
-            if (specialFood) setSpecialFood(null);
-          }
-        } else {
+      if (ateFood) {
+        setFood(generateFood(newSnake));
+        if (Math.floor((score + points) / 100) > Math.floor(score / 100)) {
+          setSpecialFood(generateFood([...newSnake, food]));
+        } else if (specialFood) {
           setSpecialFood(null);
         }
-
-        // Speed up
-        const totalEaten = Math.floor(score / 10);
-        if (totalEaten % 5 === 0) {
-          setSpeed(s => Math.max(s - 5, 60));
-          if (totalEaten % 50 === 0) {
-            setLevel(l => l + 1);
-            audioEngine.playLevelUpSound();
-          }
-        }
-
-        return newSnake;
       } else {
-        newSnake.pop();
-        return newSnake;
+        setSpecialFood(null);
       }
-    });
-  }, [food, specialFood, isWrapping, combo, score, generateFood, setGameState]);
+
+      // Progress logic
+      const totalEaten = Math.floor((score + points) / 10);
+      if (totalEaten > 0 && totalEaten % 5 === 0) {
+        setSpeed(s => Math.max(s - 2, 60)); // Slower speed increase for better feel
+        if (totalEaten % 50 === 0) {
+          setLevel(l => l + 1);
+          audioEngine.playLevelUpSound();
+        }
+      }
+    } else {
+      setSnake([newHead, ...snake.slice(0, -1)]);
+    }
+  }, [snake, food, specialFood, isWrapping, combo, score, generateFood, setGameState, setScore, gameState]);
 
   useEffect(() => {
     if (gameState === 'PLAYING') {
@@ -188,169 +226,152 @@ export default function SnakeGame({
     }
   }, [gameState, moveSnake, speed, currentBpm, isPlayingMusic]);
 
-  // Render
+  // Stable refs for animation loop
+  const snakeRef = useRef<Point[]>(snake);
+  const foodRef = useRef<Point>(food);
+  const specialFoodRef = useRef<Point | null>(specialFood);
+  const shakeRef = useRef(shake);
+
+  useEffect(() => { snakeRef.current = snake; }, [snake]);
+  useEffect(() => { foodRef.current = food; }, [food]);
+  useEffect(() => { specialFoodRef.current = specialFood; }, [specialFood]);
+  useEffect(() => { shakeRef.current = shake; }, [shake]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const render = () => {
+      ctx.save();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Grid lines
-    ctx.strokeStyle = '#1a1a2e';
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= GRID_SIZE; i++) {
-      ctx.beginPath();
-      ctx.moveTo(i * CELL_SIZE, 0);
-      ctx.lineTo(i * CELL_SIZE, canvas.height);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(0, i * CELL_SIZE);
-      ctx.lineTo(canvas.width, i * CELL_SIZE);
-      ctx.stroke();
-    }
-
-    // Food
-    ctx.fillStyle = '#ff0080';
-    ctx.shadowBlur = 15;
-    ctx.shadowColor = '#ff0080';
-    ctx.beginPath();
-    ctx.arc(food.x * CELL_SIZE + CELL_SIZE / 2, food.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE / 2 - 4, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (specialFood) {
-      ctx.fillStyle = '#ffd700';
-      ctx.shadowColor = '#ffd700';
-      ctx.beginPath();
-      ctx.arc(specialFood.x * CELL_SIZE + CELL_SIZE / 2, specialFood.y * CELL_SIZE + CELL_SIZE / 2, CELL_SIZE / 2 - 2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Snake
-    snake.forEach((segment, i) => {
-      const isHead = i === 0;
-      const alpha = 1 - (i / snake.length) * 0.7;
-      
-      let pulse = 0;
-      if (isPlayingMusic) {
-        const beatDuration = 60000 / currentBpm;
-        pulse = Math.sin((Date.now() % beatDuration) / beatDuration * Math.PI) * 4;
+      // Apply Screen Shake
+      if (shakeRef.current > 0) {
+        const dx = (Math.random() - 0.5) * shakeRef.current;
+        const dy = (Math.random() - 0.5) * shakeRef.current;
+        ctx.translate(dx, dy);
       }
 
-      const centerX = segment.x * CELL_SIZE + CELL_SIZE / 2;
-      const centerY = segment.y * CELL_SIZE + CELL_SIZE / 2;
+      // Background Grid
+      ctx.fillStyle = '#0a0a0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      if (isHead) {
-        // Draw Realistic Head
-        ctx.save();
-        ctx.translate(centerX, centerY);
-        
-        // Rotate head based on direction
-        let angle = 0;
-        if (directionRef.current.x === 1) angle = 0;
-        else if (directionRef.current.x === -1) angle = Math.PI;
-        else if (directionRef.current.y === 1) angle = Math.PI / 2;
-        else if (directionRef.current.y === -1) angle = -Math.PI / 2;
-        ctx.rotate(angle);
-
-        // Head Shape
-        ctx.shadowBlur = 15 + pulse;
-        ctx.shadowColor = '#00f5ff';
-        const headGradient = ctx.createRadialGradient(0, 0, 2, 0, 0, 10);
-        headGradient.addColorStop(0, '#00f5ff');
-        headGradient.addColorStop(1, '#00b8cc');
-        ctx.fillStyle = headGradient;
-        
-        // Organic head shape
+      ctx.strokeStyle = 'rgba(0, 245, 255, 0.05)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= GRID_SIZE; i++) {
         ctx.beginPath();
-        ctx.ellipse(0, 0, 10, 8, 0, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(i * CELL_SIZE, 0); ctx.lineTo(i * CELL_SIZE, canvas.height);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, i * CELL_SIZE); ctx.lineTo(canvas.width, i * CELL_SIZE);
+        ctx.stroke();
+      }
 
-        // Eyes
-        ctx.shadowBlur = 5;
+      // Particles
+      particlesRef.current = particlesRef.current.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 0.02;
+        
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        return p.life > 0;
+      });
+      ctx.globalAlpha = 1;
+
+      // Draw Food
+      const drawFood = (pos: Point, color: string, glow: string) => {
+        const x = pos.x * CELL_SIZE + CELL_SIZE / 2;
+        const y = pos.y * CELL_SIZE + CELL_SIZE / 2;
+        ctx.save();
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = glow;
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+        
+        // Inner core
         ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(4, -4, 2, 0, Math.PI * 2); // Right eye
-        ctx.arc(4, 4, 2, 0, Math.PI * 2);  // Left eye
-        ctx.fill();
-        
-        // Pupils
-        ctx.fillStyle = '#000';
-        ctx.beginPath();
-        ctx.arc(5, -4, 1, 0, Math.PI * 2);
-        ctx.arc(5, 4, 1, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Tongue (flicking)
-        if (Date.now() % 1000 < 200) {
-          ctx.strokeStyle = '#ff0080';
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          ctx.moveTo(8, 0);
-          ctx.lineTo(14, 0);
-          ctx.moveTo(14, 0);
-          ctx.lineTo(16, -2);
-          ctx.moveTo(14, 0);
-          ctx.lineTo(16, 2);
-          ctx.stroke();
-        }
-
+        ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
-      } else {
-        // Draw Body Segment with Scales
-        ctx.save();
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = '#bf00ff';
-        
-        const bodyGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 10);
-        bodyGradient.addColorStop(0, `rgba(191, 0, 255, ${alpha})`);
-        bodyGradient.addColorStop(1, `rgba(100, 0, 150, ${alpha})`);
-        ctx.fillStyle = bodyGradient;
+      };
 
-        // Rounded body segment
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, CELL_SIZE / 2 - 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Scale Pattern
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.2})`;
-        ctx.lineWidth = 1;
-        for (let j = 0; j < 3; j++) {
-           ctx.beginPath();
-           ctx.arc(centerX, centerY, (CELL_SIZE / 2 - 4) - j * 3, 0, Math.PI);
-           ctx.stroke();
-        }
-
-        ctx.restore();
+      drawFood(foodRef.current, '#e11d48', '#ff0080');
+      if (specialFoodRef.current) {
+        drawFood(specialFoodRef.current, '#fbbf24', '#00f5ff');
       }
-    });
 
-    ctx.shadowBlur = 0;
-  }, [snake, food, specialFood, currentBpm, isPlayingMusic]);
+      // Draw Snake
+      snakeRef.current.forEach((segment, i) => {
+        const isHead = i === 0;
+        const alpha = 1 - (i / snakeRef.current.length) * 0.7;
+        const centerX = segment.x * CELL_SIZE + CELL_SIZE / 2;
+        const centerY = segment.y * CELL_SIZE + CELL_SIZE / 2;
+
+        ctx.save();
+        if (isHead) {
+          ctx.shadowBlur = 20;
+          ctx.shadowColor = '#00f5ff';
+          ctx.fillStyle = '#00f5ff';
+        } else {
+          ctx.fillStyle = `rgba(191, 0, 255, ${alpha})`;
+        }
+
+        ctx.beginPath();
+        ctx.roundRect(
+          segment.x * CELL_SIZE + 2, 
+          segment.y * CELL_SIZE + 2, 
+          CELL_SIZE - 4, 
+          CELL_SIZE - 4, 
+          isHead ? 8 : 4
+        );
+        ctx.fill();
+        ctx.restore();
+      });
+
+      ctx.restore();
+      animationFrameRef.current = requestAnimationFrame(render);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(render);
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, []);
 
   return (
     <div className="relative">
-      {/* Game Header Stats */}
-      <div className="absolute -top-12 left-0 w-full flex justify-between px-2 font-orbitron text-xs">
-        <div className="flex space-x-4">
-          <span className="text-neon-cyan">LEVEL: {level}</span>
-          <span className="text-neon-purple">SPEED: {Math.floor(1000 / speed * 10)}</span>
+      {/* Game Header Stats Dashboard */}
+      <div className="absolute -top-16 left-0 w-full flex justify-between px-4 font-orbitron text-[10px] tracking-widest">
+        <div className="flex space-x-8">
+          <div className="flex flex-col">
+            <span className="text-gray-500 lowercase underline underline-offset-4 mb-1">Sector</span>
+            <span className="text-neon-cyan font-bold">{level.toString().padStart(2, '0')}</span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-gray-500 lowercase underline underline-offset-4 mb-1">Velocity</span>
+            <span className="text-neon-purple font-bold">{Math.floor(1000 / speed * 10)}u/s</span>
+          </div>
         </div>
-        <div className="text-neon-pink">
-          COMBO: x{combo.multiplier}
+        <div className="flex flex-col items-end">
+          <span className="text-gray-500 lowercase underline underline-offset-4 mb-1">Multiplier</span>
+          <span className="text-neon-pink font-bold">X{combo.multiplier}</span>
         </div>
       </div>
 
       {/* Canvas Container */}
-      <div className={`relative border-4 rounded-sm transition-all duration-300 ${
-        isPlayingMusic ? 'border-neon-cyan/50 glow-cyan' : 'border-gray-800'
+      <div className={`relative border-4 rounded-lg overflow-hidden transition-all duration-500 ${
+        isPlayingMusic ? 'border-neon-cyan shadow-[0_0_30px_rgba(0,245,255,0.3)]' : 'border-gray-800 shadow-2xl'
       }`}>
         <canvas 
           ref={canvasRef}
           width={GRID_SIZE * CELL_SIZE}
           height={GRID_SIZE * CELL_SIZE}
-          className="bg-black shadow-2xl"
+          className="bg-[#0a0a0f]"
         />
         
         {/* Scanlines on canvas */}
@@ -363,15 +384,42 @@ export default function SnakeGame({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-20"
+              className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-20 backdrop-blur-md"
             >
-              <h1 className="font-orbitron text-4xl text-neon-cyan mb-8 tracking-widest animate-pulse">NEON PROTOCOL</h1>
-              <button 
+              <h1 className="font-orbitron text-4xl text-neon-cyan mb-2 tracking-[0.2em] neon-text-cyan">APEX PREDATOR</h1>
+              <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-12">Neural Link Established</p>
+              
+              {/* Level / Difficulty Selector */}
+              <div className="flex space-x-4 mb-12">
+                {[1, 5, 10].map(l => (
+                  <button
+                    key={l}
+                    onClick={() => {
+                      setLevel(l);
+                      setSpeed(Math.max(INITIAL_SPEED - (l - 1) * 10, 60));
+                    }}
+                    className={`w-16 h-16 rounded border flex flex-col items-center justify-center transition-all ${
+                      level === l 
+                        ? 'border-neon-cyan bg-neon-cyan/20 text-neon-cyan glow-cyan' 
+                        : 'border-gray-800 text-gray-600 hover:border-gray-600'
+                    }`}
+                  >
+                    <span className="text-[8px] uppercase opacity-50 mb-1 font-mono">Gear</span>
+                    <span className="font-orbitron text-xl">{l}</span>
+                  </button>
+                ))}
+              </div>
+
+              <motion.button 
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={resetGame}
-                className="px-8 py-3 border-2 border-neon-cyan text-neon-cyan font-bold hover:bg-neon-cyan hover:text-black transition-all glow-cyan"
+                className="px-12 py-4 bg-neon-cyan text-black font-bold font-orbitron uppercase tracking-widest hover:brightness-125 transition-all glow-cyan rounded shadow-lg"
               >
-                PRESS ENTER TO START
-              </button>
+                INITIALIZE CORE
+              </motion.button>
+              
+              <p className="mt-8 text-[9px] text-gray-600 animate-pulse uppercase tracking-[0.4em]">Ready for link</p>
             </motion.div>
           )}
 
@@ -380,63 +428,76 @@ export default function SnakeGame({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20"
+              className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-20 backdrop-blur-md"
             >
-              <h2 className="font-orbitron text-3xl text-white mb-4">SYSTEM PAUSED</h2>
+              <h2 className="font-orbitron text-3xl text-white mb-4 neon-text-cyan">LINK SUSPENDED</h2>
               <button 
                 onClick={() => setGameState('PLAYING')}
-                className="text-neon-cyan underline underline-offset-4"
+                className="text-neon-cyan border border-neon-cyan px-6 py-2 rounded-full uppercase text-xs font-bold font-orbitron hover:bg-neon-cyan/10 transition-all"
               >
-                PRESS 'P' TO RESUME
+                RESUME UPLOAD
               </button>
             </motion.div>
           )}
 
           {gameState === 'GAME_OVER' && (
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
               className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-20 p-8 text-center"
             >
-              <h2 className="font-orbitron text-5xl text-red-500 mb-2 neon-text-pink">GAME OVER</h2>
-              <p className="text-gray-400 mb-8 tracking-widest uppercase">Connection Severed</p>
-              
-              <div className="bg-gray-900 w-full p-6 border-y border-neon-purple/30 mb-8">
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-500">FINAL SCORE</span>
-                  <span className="text-neon-cyan font-bold text-xl">{score}</span>
+              <div className="p-8 rounded-xl border border-neon-pink/30 w-full glow-pink bg-black/80 backdrop-blur-sm">
+                <h2 className="font-orbitron text-5xl text-neon-pink mb-2 neon-text-pink">SYSTEM FAILURE</h2>
+                <p className="text-gray-500 text-xs mb-8 tracking-[0.4em] uppercase">Neural Connection Loss</p>
+                
+                <div className="bg-neon-pink/5 w-full p-6 border-y border-neon-pink/20 mb-12">
+                  <div className="flex justify-between items-center mb-4">
+                    <span className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">Performance Yield</span>
+                    <span className="text-white font-orbitron font-bold text-3xl">{score}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">Sync Duration</span>
+                    <span className="text-neon-purple font-bold">{(score/10).toFixed(0)}u</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">LENGTH REACHED</span>
-                  <span className="text-neon-purple">{snake.length} u</span>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <button 
+                    onClick={() => setGameState('IDLE')}
+                    className="py-4 border border-gray-700 text-gray-500 font-bold uppercase tracking-widest hover:text-white hover:border-white transition-all rounded font-mono"
+                  >
+                    Menu
+                  </button>
+                  <button 
+                    onClick={resetGame}
+                    className="py-4 bg-neon-cyan text-black font-orbitron font-bold uppercase tracking-widest hover:brightness-125 transition-all rounded shadow-lg glow-cyan"
+                  >
+                    Reboot
+                  </button>
                 </div>
               </div>
-
-              <button 
-                onClick={resetGame}
-                className="w-full py-4 bg-neon-cyan text-black font-bold uppercase tracking-widest hover:brightness-125 transition-all mb-4"
-              >
-                REINITIALIZE SESSION
-              </button>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
       {/* Control Tips */}
-      <div className="mt-6 flex justify-center space-x-8 text-[10px] text-gray-500 uppercase tracking-widest bg-black/40 p-3 border border-gray-800/50 rounded-lg">
-        <div className="flex items-center"><span className="text-neon-cyan mr-2 border border-neon-cyan/30 px-1 rounded">WASD</span> MOVE</div>
-        <div className="flex items-center"><span className="text-neon-purple mr-2 border border-neon-purple/30 px-1 rounded">P</span> PAUSE</div>
-        <div className="flex items-center"><span className="text-neon-pink mr-2 border border-neon-pink/30 px-1 rounded">ESC</span> QUIT</div>
+      <div className="mt-8 flex justify-center space-x-12 text-[10px] text-gray-600 uppercase tracking-widest bg-black/60 p-4 border border-gray-800 rounded-lg">
+        <div className="flex items-center"><span className="text-neon-cyan mr-3 font-bold">W-A-S-D</span> STEER</div>
+        <div className="flex items-center"><span className="text-neon-purple mr-3 font-bold">P</span> FREEZE</div>
         <div className="flex items-center">
           <button 
             onClick={() => setIsWrapping(!isWrapping)}
-            className={`mr-2 px-1 rounded border transition-colors ${isWrapping ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan' : 'border-gray-700'}`}
+            className={`mr-3 px-3 py-1 rounded border transition-all font-bold ${
+              isWrapping 
+                ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan glow-cyan' 
+                : 'border-gray-700'
+            }`}
           >
-            WRAP
+            {isWrapping ? 'STABILIZED' : 'LOCKED'}
           </button>
-          WALL EASE
+          PHYSICS
         </div>
       </div>
     </div>
