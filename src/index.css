@@ -1,0 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-orbitron: "Orbitron", sans-serif;
+  --font-mono: "Share Tech Mono", monospace;
+  --color-neon-cyan: #00f5ff;
+  --color-neon-purple: #bf00ff;
+  --color-neon-pink: #ff0080;
+  --color-cyber-bg: #0a0a0f;
+}
+
+@layer base {
+  body {
+    @apply bg-cyber-bg text-gray-100 font-mono overflow-hidden;
+  }
+}
+
+.scanline {
+  background: linear-gradient(
+    to bottom,
+    rgba(18, 16, 16, 0) 50%,
+    rgba(0, 0, 0, 0.25) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+}
+
+/* Cyberpunk glow effects */
+.glow-cyan {
+  box-shadow: 0 0 15px rgba(0, 245, 255, 0.5);
+}
+
+.glow-purple {
+  box-shadow: 0 0 15px rgba(191, 0, 255, 0.5);
+}
+
+.glow-pink {
+  box-shadow: 0 0 15px rgba(255, 0, 128, 0.5);
+}
+
+.neon-border-cyan {
+  border: 1px solid #00f5ff;
+  box-shadow: 0 0 10px #00f5ff, inset 0 0 5px #00f5ff;
+}
+
+.neon-border-purple {
+  border: 1px solid #bf00ff;
+  box-shadow: 0 0 10px #bf00ff, inset 0 0 5px #bf00ff;
+}
+
+.neon-text-cyan {
+  text-shadow: 0 0 8px #00f5ff;
+}
+
+.neon-text-pink {
+  text-shadow: 0 0 8px #ff0080;
+}
+
+@keyframes pulse-grid {
+  0% { opacity: 0.1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 0.1; }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  animation: marquee 10s linear infinite;
+}
+
+.bg-grid {
+  background-image: 
+    linear-gradient(rgba(0, 245, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 245, 255, 0.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: pulse-grid 4s ease-in-out infinite;
+}
+
+.bg-radial-vignette {
+  background: radial-gradient(circle at center, transparent 0%, rgba(10, 10, 15, 0.8) 100%);
+}
+
+@keyframes chromatic-shift {
+  0% { transform: translate(0,0); }
+  10% { transform: translate(-2px, 1px); }
+  20% { transform: translate(2px, -1px); }
+  100% { transform: translate(0,0); }
+}
+
+.glitch-effect {
+  animation: chromatic-shift 0.2s infinite;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 245, 255, 0.3);
+  border-radius: 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 245, 255, 0.5);
+}

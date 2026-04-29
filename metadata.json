@@ -1,0 +1,6 @@
+{
+  "name": "CyberSnake: Neon Protocol",
+  "description": "A dark neon cyberpunk Snake game integrated with a procedural AI music player.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
