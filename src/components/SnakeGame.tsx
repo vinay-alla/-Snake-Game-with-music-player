@@ -10,6 +10,7 @@ interface SnakeGameProps {
   score: number;
   currentBpm: number;
   isPlayingMusic: boolean;
+  onComboChange?: (multiplier: number) => void;
 }
 
 const GRID_SIZE = 20;
@@ -33,7 +34,8 @@ export default function SnakeGame({
   setScore, 
   score,
   currentBpm,
-  isPlayingMusic
+  isPlayingMusic,
+  onComboChange
 }: SnakeGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [snake, setSnake] = useState<Point[]>([{ x: 10, y: 10 }, { x: 10, y: 11 }, { x: 10, y: 12 }]);
@@ -44,24 +46,30 @@ export default function SnakeGame({
   const [isWrapping, setIsWrapping] = useState(true);
   const [combo, setCombo] = useState({ multiplier: 1, lastEat: 0 });
   const [level, setLevel] = useState(1);
+
+  useEffect(() => {
+    onComboChange?.(combo.multiplier);
+  }, [combo.multiplier, onComboChange]);
   const [shake, setShake] = useState(0);
   const particlesRef = useRef<Particle[]>([]);
   const gameLoopRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const directionRef = useRef<Point>({ x: 0, y: -1 });
 
-  const spawnParticles = (x: number, y: number, color: string, count: number = 8) => {
+  const spawnParticles = (x: number, y: number, color: string, count: number = 15) => {
     const newParticles: Particle[] = [];
     for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 6 + 2;
       newParticles.push({
         id: Math.random(),
         x: x + CELL_SIZE / 2,
         y: y + CELL_SIZE / 2,
-        vx: (Math.random() - 0.5) * 4,
-        vy: (Math.random() - 0.5) * 4,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
         life: 1.0,
         color: color,
-        size: Math.random() * 3 + 2
+        size: Math.random() * 4 + 1
       });
     }
     particlesRef.current = [...particlesRef.current, ...newParticles];
@@ -159,7 +167,7 @@ export default function SnakeGame({
       } else {
         setGameState('GAME_OVER');
         audioEngine.playDeathSound();
-        triggerShake(12);
+        triggerShake(20); // Increased intensity
         return;
       }
     }
@@ -168,7 +176,7 @@ export default function SnakeGame({
     if (snake.some(s => s.x === newHead.x && s.y === newHead.y)) {
       setGameState('GAME_OVER');
       audioEngine.playDeathSound();
-      triggerShake(12);
+      triggerShake(20); // Increased intensity
       return;
     }
 
@@ -177,6 +185,7 @@ export default function SnakeGame({
     const ateSpecial = specialFood && newHead.x === specialFood.x && newHead.y === specialFood.y;
 
     if (ateFood || ateSpecial) {
+      triggerShake(4); // Subtle shake on eating
       const particleColor = ateSpecial ? '#fbbf24' : '#e11d48';
       spawnParticles(newHead.x * CELL_SIZE, newHead.y * CELL_SIZE, particleColor, 12);
       
@@ -252,6 +261,12 @@ export default function SnakeGame({
         const dx = (Math.random() - 0.5) * shakeRef.current;
         const dy = (Math.random() - 0.5) * shakeRef.current;
         ctx.translate(dx, dy);
+
+        // Glitch Flash Effect during high intensity shake
+        if (shakeRef.current > 10 && Math.random() > 0.7) {
+          ctx.fillStyle = Math.random() > 0.5 ? 'rgba(0, 245, 255, 0.1)' : 'rgba(255, 0, 128, 0.1)';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
       }
 
       // Background Grid
@@ -273,13 +288,20 @@ export default function SnakeGame({
       particlesRef.current = particlesRef.current.filter(p => {
         p.x += p.vx;
         p.y += p.vy;
-        p.life -= 0.02;
+        p.vx *= 0.95; // Add friction
+        p.vy *= 0.95;
+        p.life -= 0.025;
         
+        ctx.save();
         ctx.globalAlpha = p.life;
+        ctx.shadowBlur = p.life * 10;
+        ctx.shadowColor = p.color;
         ctx.fillStyle = p.color;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
+        ctx.restore();
+        
         return p.life > 0;
       });
       ctx.globalAlpha = 1;

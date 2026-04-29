@@ -21,6 +21,7 @@ export default function App() {
   const [leaderboard, setLeaderboard] = useState<ScoreEntry[]>([]);
   const [volume, setVolume] = useState(0.5);
   const [isGlitching, setIsGlitching] = useState(false);
+  const [comboMultiplier, setComboMultiplier] = useState(1);
 
   useEffect(() => {
     const triggerGlitch = () => {
@@ -115,7 +116,11 @@ export default function App() {
 
   return (
     <div className={`relative h-screen w-screen bg-cyber-bg font-mono text-gray-100 overflow-hidden select-none ${isGlitching ? 'glitch-effect' : ''}`}>
-      <Background isPlaying={isPlayingMusic} bpm={currentTrack?.bpm || 120} />
+      <Background 
+        isPlaying={isPlayingMusic} 
+        bpm={currentTrack?.bpm || 120} 
+        comboMultiplier={comboMultiplier}
+      />
       
       {/* Main Layout */}
       <div className="relative z-10 grid grid-cols-[400px_1fr_400px] h-full p-6 gap-6 pointer-events-none">
@@ -152,6 +157,7 @@ export default function App() {
             score={score}
             currentBpm={currentTrack?.bpm || 120}
             isPlayingMusic={isPlayingMusic}
+            onComboChange={setComboMultiplier}
           />
         </div>
 
